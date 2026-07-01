@@ -1,781 +1,307 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  RotateCw, 
-  RotateCcw,
-  Shuffle, 
-  HelpCircle, 
-  Info, 
-  CheckCircle2, 
-  AlertTriangle,
-  ChevronRight, 
-  ChevronLeft, 
-  Settings2,
-  BookOpen,
-  Sparkles,
-  RefreshCw
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Round Table Dish Puzzle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+    <div id="root"></div>
 
-// Food details mapping
-const FOOD_DATABASE = [
-  { id: 0, label: 'A', letter: 'a', name: 'Pizza', emoji: '🍕', color: 'bg-red-500', text: 'text-red-400', border: 'border-red-500' },
-  { id: 1, label: 'B', letter: 'b', name: 'Burger', emoji: '🍔', color: 'bg-amber-500', text: 'text-amber-400', border: 'border-amber-500' },
-  { id: 2, label: 'C', letter: 'c', name: 'Sushi', emoji: '🍣', color: 'bg-emerald-500', text: 'text-emerald-400', border: 'border-emerald-500' },
-  { id: 3, label: 'D', letter: 'd', name: 'Taco', emoji: '🌮', color: 'bg-yellow-500', text: 'text-yellow-400', border: 'border-yellow-500' },
-  { id: 4, label: 'E', letter: 'e', name: 'Ramen', emoji: '🍜', color: 'bg-orange-500', text: 'text-orange-400', border: 'border-orange-500' },
-  { id: 5, label: 'F', letter: 'f', name: 'Salad', emoji: '🥗', color: 'bg-green-500', text: 'text-green-400', border: 'border-green-500' },
-  { id: 6, label: 'G', letter: 'g', name: 'Cake', emoji: '🍰', color: 'bg-pink-500', text: 'text-pink-400', border: 'border-pink-500' },
-  { id: 7, label: 'H', letter: 'h', name: 'Donut', emoji: '🍩', color: 'bg-purple-500', text: 'text-purple-400', border: 'border-purple-500' },
-  { id: 8, label: 'I', letter: 'i', name: 'Curry', emoji: '🍛', color: 'bg-blue-500', text: 'text-blue-400', border: 'border-blue-500' },
-  { id: 9, label: 'J', letter: 'j', name: 'Shrimp', emoji: '🍤', color: 'bg-teal-500', text: 'text-teal-400', border: 'border-teal-500' }
-];
+    <script type="text/babel">
+        // Inline simple icons to replace lucide-react dependencies safely in a single file
+        const RotateCw = () => <span>🔄</span>;
+        const RotateCcw = () => <span>↩️</span>;
+        const Shuffle = () => <span>🔀</span>;
+        const Info = () => <span>ℹ️</span>;
+        const CheckCircle2 = () => <span>✅</span>;
+        const AlertTriangle = () => <span>⚠️</span>;
+        const Settings2 = () => <span>⚙️</span>;
+        const BookOpen = () => <span>📖</span>;
+        const Sparkles = () => <span>✨</span>;
+        const RefreshCw = () => <span>⏳</span>;
 
-export default function App() {
-  const [n, setN] = useState(5);
-  // dishes[i] represents the dish ID placed at Position i at rotation = 0
-  const [dishes, setDishes] = useState(() => [1, 2, 3, 4, 0]); // Init with a valid derangement of size 5
-  const [rotation, setRotation] = useState(0);
-  const [isEditing, setIsEditing] = useState(false);
-  const [activeTab, setActiveTab] = useState('interactive'); // 'interactive' | 'proof' | 'pigeonhole'
+        const FOOD_DATABASE = [
+          { id: 0, label: 'A', letter: 'a', name: 'Pizza', emoji: '🍕' },
+          { id: 1, label: 'B', letter: 'b', name: 'Burger', emoji: '🍔' },
+          { id: 2, label: 'C', letter: 'c', name: 'Sushi', emoji: '🍣' },
+          { id: 3, label: 'D', letter: 'd', name: 'Taco', emoji: '🌮' },
+          { id: 4, label: 'E', letter: 'e', name: 'Ramen', emoji: '🍜' },
+          { id: 5, label: 'F', letter: 'f', name: 'Salad', emoji: '🥗' },
+          { id: 6, label: 'G', letter: 'g', name: 'Cake', emoji: '🍰' },
+          { id: 7, label: 'H', letter: 'h', name: 'Donut', emoji: '🍩' },
+          { id: 8, label: 'I', letter: 'i', name: 'Curry', emoji: '🍛' },
+          { id: 9, label: 'J', letter: 'j', name: 'Shrimp', emoji: '🍤' }
+        ];
 
-  // Helper: Generate a random derangement
-  const generateDerangement = (size) => {
-    let arr = Array.from({ length: size }, (_, i) => i);
-    let attempts = 0;
-    while (attempts < 1000) {
-      // Fisher-Yates shuffle
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
-      
-      // Check if it's a derangement (no fixed points: arr[i] !== i for all i)
-      let isDerang = true;
-      for (let i = 0; i < size; i++) {
-        if (arr[i] === i) {
-          isDerang = false;
-          break;
-        }
-      }
-      if (isDerang) return arr;
-      attempts++;
-    }
-    // Fallback: simple cyclic shift by 1 (always a derangement)
-    return Array.from({ length: size }, (_, i) => (i + 1) % size);
-  };
+        function App() {
+          const { useState, useEffect, useMemo } = React;
+          const [n, setN] = useState(5);
+          const [dishes, setDishes] = useState([1, 2, 3, 4, 0]); 
+          const [rotation, setRotation] = useState(0);
+          const [isEditing, setIsEditing] = useState(false);
+          const [activeTab, setActiveTab] = useState('interactive'); 
 
-  // Sync state changes atomically when n is modified by user
-  const handleNChange = (newN) => {
-    setN(newN);
-    setDishes(generateDerangement(newN));
-    setRotation(0);
-  };
+          const generateDerangement = (size) => {
+            let arr = Array.from({ length: size }, (_, i) => i);
+            let attempts = 0;
+            while (attempts < 1000) {
+              for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+              }
+              let isDerang = true;
+              for (let i = 0; i < size; i++) {
+                if (arr[i] === i) { isDerang = false; break; }
+              }
+              if (isDerang) return arr;
+              attempts++;
+            }
+            return Array.from({ length: size }, (_, i) => (i + 1) % size);
+          };
 
-  const handleShuffle = () => {
-    setDishes(generateDerangement(n));
-    setRotation(0);
-  };
+          const handleNChange = (newN) => {
+            setN(newN);
+            setDishes(generateDerangement(newN));
+            setRotation(0);
+          };
 
-  // Render safety guard: wait until dishes array matches selected table size
-  const isLoaded = dishes && dishes.length === n;
+          const handleShuffle = () => {
+            setDishes(generateDerangement(n));
+            setRotation(0);
+          };
 
-  // Check if current configuration is indeed a derangement at rotation 0
-  const isInitialDerangement = useMemo(() => {
-    if (!isLoaded) return false;
-    for (let i = 0; i < n; i++) {
-      if (dishes[i] === i) return false;
-    }
-    return true;
-  }, [dishes, n, isLoaded]);
+          const isLoaded = dishes && dishes.length === n;
 
-  // Calculate current dish layout based on rotation
-  const currentDishes = useMemo(() => {
-    if (!isLoaded) return [];
-    let arr = [];
-    for (let i = 0; i < n; i++) {
-      const initialIndex = (i - rotation + n) % n;
-      arr.push(dishes[initialIndex]);
-    }
-    return arr;
-  }, [dishes, rotation, n, isLoaded]);
+          const isInitialDerangement = useMemo(() => {
+            if (!isLoaded) return false;
+            for (let i = 0; i < n; i++) { if (dishes[i] === i) return false; }
+            return true;
+          }, [dishes, n, isLoaded]);
 
-  // Calculate matches at current rotation
-  const matches = useMemo(() => {
-    if (!isLoaded) return [];
-    let list = [];
-    for (let i = 0; i < n; i++) {
-      if (currentDishes[i] === i) {
-        list.push(i);
-      }
-    }
-    return list;
-  }, [currentDishes, n, isLoaded]);
+          const currentDishes = useMemo(() => {
+            if (!isLoaded) return [];
+            let arr = [];
+            for (let i = 0; i < n; i++) {
+              const initialIndex = (i - rotation + n) % n;
+              arr.push(dishes[initialIndex]);
+            }
+            return arr;
+          }, [dishes, rotation, n, isLoaded]);
 
-  // Calculate which rotation is required for each dish to reach its owner
-  const requiredRotations = useMemo(() => {
-    if (!isLoaded) return {};
-    let map = {};
-    for (let j = 0; j < n; j++) {
-      const p = dishes.indexOf(j);
-      if (p !== -1) {
-        const k = (j - p + n) % n;
-        map[j] = k;
-      }
-    }
-    return map;
-  }, [dishes, n, isLoaded]);
+          const matches = useMemo(() => {
+            if (!isLoaded) return [];
+            let list = [];
+            for (let i = 0; i < n; i++) { if (currentDishes[i] === i) list.push(i); }
+            return list;
+          }, [currentDishes, n, isLoaded]);
 
-  // Count how many dishes require each rotation
-  const rotationFrequencies = useMemo(() => {
-    if (!isLoaded) return [];
-    let freq = Array(n).fill(0);
-    Object.values(requiredRotations).forEach(k => {
-      if (k < n) {
-        freq[k]++;
-      }
-    });
-    return freq;
-  }, [requiredRotations, n, isLoaded]);
+          const requiredRotations = useMemo(() => {
+            if (!isLoaded) return {};
+            let map = {};
+            for (let j = 0; j < n; j++) {
+              const p = dishes.indexOf(j);
+              if (p !== -1) { map[j] = (j - p + n) % n; }
+            }
+            return map;
+          }, [dishes, n, isLoaded]);
 
-  // Find if there exists a rotation with >= 2 matches
-  const winningRotations = useMemo(() => {
-    if (!isLoaded) return [];
-    let wins = [];
-    rotationFrequencies.forEach((count, k) => {
-      if (count >= 2) wins.push({ rotation: k, count });
-    });
-    return wins;
-  }, [rotationFrequencies, isLoaded]);
+          const rotationFrequencies = useMemo(() => {
+            if (!isLoaded) return [];
+            let freq = Array(n).fill(0);
+            Object.values(requiredRotations).forEach(k => { if (k < n) freq[k]++; });
+            return freq;
+          }, [requiredRotations, n, isLoaded]);
 
-  const rotateClockwise = () => {
-    setRotation((prev) => (prev + 1) % n);
-  };
+          const winningRotations = useMemo(() => {
+            if (!isLoaded) return [];
+            let wins = [];
+            rotationFrequencies.forEach((count, k) => { if (count >= 2) wins.push({ rotation: k, count }); });
+            return wins;
+          }, [rotationFrequencies, isLoaded]);
 
-  const rotateCounterClockwise = () => {
-    setRotation((prev) => (prev - 1 + n) % n);
-  };
+          const handleManualDishChange = (posIndex, targetDishId) => {
+            const newDishes = [...dishes];
+            const existingPos = newDishes.indexOf(targetDishId);
+            if (existingPos !== -1) { newDishes[existingPos] = newDishes[posIndex]; }
+            newDishes[posIndex] = targetDishId;
+            setDishes(newDishes);
+            setRotation(0);
+          };
 
-  const handleManualDishChange = (posIndex, targetDishId) => {
-    const newDishes = [...dishes];
-    const existingPos = newDishes.indexOf(targetDishId);
-    if (existingPos !== -1) {
-      // Swap
-      newDishes[existingPos] = newDishes[posIndex];
-    }
-    newDishes[posIndex] = targetDishId;
-    setDishes(newDishes);
-    setRotation(0); // Reset rotation to evaluate new setup
-  };
+          if (!isLoaded) return <div className="p-8 text-center"><RefreshCw /> Loading...</div>;
 
-  if (!isLoaded) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center font-sans">
-        <div className="text-center space-y-3">
-          <RefreshCw className="w-8 h-8 animate-spin text-indigo-500 mx-auto" />
-          <p className="text-sm text-slate-400">Initializing Circular Table...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-lg shadow-indigo-500/20">
-            <RotateCw className="w-6 h-6" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
-              The Round Table Dish Puzzle
-            </h1>
-            <p className="text-xs text-slate-400">
-              An interactive exploration of derangements & the Pigeonhole Principle
-            </p>
-          </div>
-        </div>
-
-        {/* Controls */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
-            <Settings2 className="w-4 h-4 text-slate-400" />
-            <span className="text-xs font-medium text-slate-300">Guests (n):</span>
-            <input 
-              type="range" 
-              min="3" 
-              max="10" 
-              value={n} 
-              onChange={(e) => handleNChange(parseInt(e.target.value))}
-              className="w-24 accent-indigo-500 cursor-pointer"
-            />
-            <span className="text-sm font-bold text-indigo-400 w-5 text-center">{n}</span>
-          </div>
-
-          <button 
-            onClick={handleShuffle}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 transition-all text-white px-3 py-1.5 rounded-lg text-sm font-medium shadow-md shadow-indigo-600/10 hover:shadow-indigo-600/20 active:scale-95"
-          >
-            <Shuffle className="w-4 h-4" />
-            Shuffle Derangement
-          </button>
-        </div>
-      </header>
-
-      {/* Main Content Dashboard */}
-      <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 overflow-hidden">
-        
-        {/* Left column: Round Table Interactive (7 cols) */}
-        <div className="lg:col-span-7 flex flex-col bg-slate-900/40 rounded-2xl border border-slate-800/80 p-5 shadow-2xl relative overflow-hidden">
-          
-          {/* Circular grid lines in the background */}
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(79,70,229,0.05)_0%,transparent_70%)] pointer-events-none" />
-
-          {/* Interactive tabs */}
-          <div className="flex items-center justify-between mb-4 z-10">
-            <div className="flex gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
-              <button 
-                onClick={() => setActiveTab('interactive')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${activeTab === 'interactive' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-              >
-                Interactive Table
-              </button>
-              <button 
-                onClick={() => setActiveTab('pigeonhole')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${activeTab === 'pigeonhole' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-              >
-                Pigeonholes Map
-              </button>
-              <button 
-                onClick={() => setActiveTab('proof')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${activeTab === 'proof' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
-              >
-                Formal Proof
-              </button>
-            </div>
-
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setIsEditing(!isEditing)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${isEditing ? 'bg-amber-500/20 text-amber-300 border-amber-500/50' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'}`}
-              >
-                {isEditing ? "Exit Edit Mode 🛠️" : "Edit Initial Setup"}
-              </button>
-            </div>
-          </div>
-
-          {/* Alert if not a derangement */}
-          {!isInitialDerangement && (
-            <div className="mb-4 bg-amber-950/40 border border-amber-800/50 text-amber-200 px-4 py-3 rounded-xl flex items-start gap-2.5 text-xs z-10 shadow-lg">
-              <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
-              <div>
-                <span className="font-semibold text-amber-300 block mb-0.5">Warning: Current arrangement is NOT a derangement!</span>
-                At least one person starts with their correct dish (Rotation 0). The Pigeonhole Theorem only guarantees a rotation of ≥ 2 matches when starting with an absolute derangement (everyone has the wrong dish).
-              </div>
-            </div>
-          )}
-
-          {/* Interactive Visualizer Canvas */}
-          <div className="flex-1 flex flex-col items-center justify-center min-h-[380px] md:min-h-[440px] relative z-10">
-            {activeTab === 'interactive' && (
-              <>
-                {/* Lazy Susan Rotation Controls */}
-                <div className="absolute bottom-2 left-0 right-0 flex justify-center items-center gap-4 z-20 bg-slate-950/50 p-2 rounded-2xl border border-slate-800 max-w-sm mx-auto backdrop-blur-sm">
-                  <button 
-                    onClick={rotateCounterClockwise}
-                    className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-all active:scale-95"
-                    title="Rotate CCW"
-                  >
-                    <RotateCcw className="w-5 h-5" />
-                  </button>
-                  <div className="flex flex-col items-center min-w-[140px]">
-                    <span className="text-xxs uppercase tracking-widest text-indigo-400 font-bold">Rotation</span>
-                    <span className="text-sm font-extrabold text-slate-100">+{rotation} Positions</span>
+          return (
+            <div className="flex flex-col min-h-screen">
+              <header className="border-b border-slate-800 bg-slate-900/50 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-indigo-600 p-2 rounded-xl text-white shadow-lg"><RotateCw /></div>
+                  <div>
+                    <h1 className="text-xl font-bold tracking-tight">The Round Table Dish Puzzle</h1>
+                    <p className="text-xs text-slate-400">An interactive explore tool for the Pigeonhole Principle</p>
                   </div>
-                  <button 
-                    onClick={rotateClockwise}
-                    className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-all active:scale-95"
-                    title="Rotate CW"
-                  >
-                    <RotateCw className="w-5 h-5" />
-                  </button>
                 </div>
-
-                {/* The Round Table Render */}
-                <div className="relative w-full max-w-[420px] aspect-square flex items-center justify-center">
-                  
-                  {/* Outer ring of seats and people */}
-                  <svg viewBox="0 0 400 400" className="w-full h-full select-none">
-                    
-                    {/* Glowing outer shadow of table */}
-                    <circle cx="200" cy="200" r="130" className="fill-slate-900/60 stroke-slate-800 stroke-2" />
-                    
-                    {/* Lazy Susan rotating inner plate */}
-                    <g 
-                      style={{ 
-                        transform: `rotate(${(rotation * 360) / n}deg)`, 
-                        transformOrigin: '200px 200px',
-                        transition: 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                      }}
-                    >
-                      {/* Inner wood/glass visual */}
-                      <circle cx="200" cy="200" r="100" className="fill-slate-800/40 stroke-slate-700 stroke" />
-                      
-                      {/* Rotating plates & dishes */}
-                      {Array.from({ length: n }).map((_, i) => {
-                        const angle = (i * 2 * Math.PI) / n - Math.PI / 2;
-                        const radius = 68;
-                        const cx = 200 + radius * Math.cos(angle);
-                        const cy = 200 + radius * Math.sin(angle);
-                        const dishId = dishes[i];
-                        const food = FOOD_DATABASE[dishId] || { emoji: '🍽️', letter: '?', name: 'Unknown' };
-                        
-                        // Check if this dish is correct at current position
-                        const currentPosIndex = (i + rotation) % n;
-                        const isCorrectNow = dishId === currentPosIndex;
-
-                        return (
-                          <g key={`plate-${i}`} className="cursor-pointer">
-                            {/* Visual plate */}
-                            <circle 
-                              cx={cx} 
-                              cy={cy} 
-                              r="20" 
-                              className={`transition-all duration-300 ${
-                                isCorrectNow 
-                                  ? 'fill-emerald-500/20 stroke-emerald-400 stroke-2 shadow-lg shadow-emerald-500/30' 
-                                  : 'fill-slate-900/90 stroke-slate-600/50'
-                              }`} 
-                            />
-                            {/* Glow if correct */}
-                            {isCorrectNow && (
-                              <circle 
-                                cx={cx} 
-                                cy={cy} 
-                                r="24" 
-                                className="fill-none stroke-emerald-500/30 stroke-1 animate-ping"
-                              />
-                            )}
-                            {/* Dish emoji */}
-                            <text 
-                              x={cx} 
-                              y={cy + 4} 
-                              textAnchor="middle" 
-                              fontSize="16"
-                              className="pointer-events-none"
-                            >
-                              {food.emoji}
-                            </text>
-                            
-                            {/* Miniature label for the dish letter */}
-                            <rect 
-                              x={cx - 10} 
-                              y={cy - 25} 
-                              width="20" 
-                              height="12" 
-                              rx="3" 
-                              className="fill-slate-950 stroke-slate-700 stroke-[0.5]"
-                            />
-                            <text 
-                              x={cx} 
-                              y={cy - 16} 
-                              textAnchor="middle" 
-                              fontSize="9" 
-                              className="font-bold fill-indigo-300"
-                            >
-                              {food.letter}
-                            </text>
-                          </g>
-                        );
-                      })}
-                    </g>
-
-                    {/* Outer elements: Seats and Persons (stationary) */}
-                    {Array.from({ length: n }).map((_, i) => {
-                      const angle = (i * 2 * Math.PI) / n - Math.PI / 2;
-                      const radius = 155;
-                      const cx = 200 + radius * Math.cos(angle);
-                      const cy = 200 + radius * Math.sin(angle);
-                      
-                      const person = FOOD_DATABASE[i] || { label: '?', letter: '?' };
-                      
-                      // Check if person currently gets their correct dish
-                      const matchesPerson = matches.includes(i);
-
-                      return (
-                        <g key={`seat-${i}`}>
-                          {/* Indicator light linking plate to guest */}
-                          <line 
-                            x1={200 + 105 * Math.cos(angle)} 
-                            y1={200 + 105 * Math.sin(angle)} 
-                            x2={200 + 135 * Math.cos(angle)} 
-                            y2={200 + 135 * Math.sin(angle)} 
-                            className={`stroke-2 transition-all duration-300 ${matchesPerson ? 'stroke-emerald-500 opacity-100' : 'stroke-slate-800 opacity-40'}`}
-                            strokeDasharray={matchesPerson ? "0" : "2"}
-                          />
-
-                          {/* Outer Seat Card */}
-                          <g transform={`translate(${cx - 22}, ${cy - 22})`}>
-                            {/* Card Background */}
-                            <rect 
-                              width="44" 
-                              height="44" 
-                              rx="10" 
-                              className={`transition-all duration-300 ${
-                                matchesPerson 
-                                  ? 'fill-emerald-950/80 stroke-emerald-500 stroke-2 filter drop-shadow-[0_0_8px_rgba(16,185,129,0.3)]' 
-                                  : 'fill-slate-900/90 stroke-slate-800'
-                              }`}
-                            />
-                            
-                            {/* Person Label (Capital Letter) */}
-                            <text 
-                              x="22" 
-                              y="18" 
-                              textAnchor="middle" 
-                              className={`font-black text-sm transition-colors ${matchesPerson ? 'fill-emerald-400' : 'fill-slate-100'}`}
-                            >
-                              {person.label}
-                            </text>
-
-                            {/* Preferred Dish Label (e.g. "wants a") */}
-                            <text 
-                              x="22" 
-                              y="30" 
-                              textAnchor="middle" 
-                              fontSize="8" 
-                              className="fill-slate-400 font-medium"
-                            >
-                              wants {person.letter}
-                            </text>
-
-                            {/* Happy smiley face if matched */}
-                            {matchesPerson && (
-                              <text 
-                                x="22" 
-                                y="40" 
-                                textAnchor="middle" 
-                                fontSize="9" 
-                                className="fill-emerald-400 font-bold"
-                              >
-                                😊 Match!
-                              </text>
-                            )}
-                          </g>
-                        </g>
-                      );
-                    })}
-                  </svg>
-                </div>
-              </>
-            )}
-
-            {/* Pigeonhole Visualization Tab */}
-            {activeTab === 'pigeonhole' && (
-              <div className="w-full h-full flex flex-col justify-between py-2 gap-4">
-                <div className="bg-slate-950/40 p-3 rounded-xl border border-slate-800 text-xs text-slate-300 leading-relaxed">
-                  <p className="flex items-start gap-2">
-                    <Info className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
-                    <span>
-                      Each dish (<strong>pigeon</strong>) requires a unique rotation step k ∈ {"{1, ..., n-1}"} to reach its owner. Since no one initially has the correct dish, rotation 0 requires 0 dishes. 
-                    </span>
-                  </p>
-                </div>
-
-                {/* Pigeonholes Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 w-full">
-                  {Array.from({ length: n - 1 }).map((_, idx) => {
-                    const holeRotation = idx + 1;
-                    // Find dishes that require this specific rotation
-                    const sittingDishes = Object.keys(requiredRotations)
-                      .filter(dishId => requiredRotations[dishId] === holeRotation)
-                      .map(dishId => FOOD_DATABASE[parseInt(dishId)])
-                      .filter(Boolean);
-
-                    const hasDouble = sittingDishes.length >= 2;
-
-                    return (
-                      <div 
-                        key={`hole-${holeRotation}`}
-                        className={`p-3 rounded-xl border flex flex-col items-center justify-between min-h-[110px] transition-all relative ${
-                          hasDouble 
-                            ? 'bg-indigo-950/40 border-indigo-500/70 shadow-lg shadow-indigo-500/10' 
-                            : 'bg-slate-900/40 border-slate-800'
-                        }`}
-                      >
-                        <div className="flex justify-between items-center w-full mb-2">
-                          <span className="text-xxs uppercase tracking-widest text-slate-400 font-bold">
-                            Rotation +{holeRotation}
-                          </span>
-                          {hasDouble && (
-                            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-indigo-500 text-white animate-pulse">
-                              {sittingDishes.length} Pigeons
-                            </span>
-                          )}
-                        </div>
-
-                        {/* List of dishes that go into this hole */}
-                        <div className="flex flex-wrap gap-1.5 justify-center items-center flex-1 py-1">
-                          {sittingDishes.length > 0 ? (
-                            sittingDishes.map(food => (
-                              <div 
-                                key={`pigeon-${food.id}`}
-                                className="flex items-center gap-1 bg-slate-950/80 px-2 py-1 rounded-lg border border-slate-800 text-xs"
-                                title={`Dish ${food.letter} requires rotation +${holeRotation} to reach Guest ${food.label}`}
-                              >
-                                <span>{food.emoji}</span>
-                                <span className="font-bold text-slate-300">{food.letter}</span>
-                              </div>
-                            ))
-                          ) : (
-                            <span className="text-slate-600 text-[10px] italic">Empty Hole</span>
-                          )}
-                        </div>
-
-                        <div className="w-full text-center mt-2 border-t border-slate-800/50 pt-1.5">
-                          <span className="text-[10px] text-slate-400 font-medium">
-                            {sittingDishes.length} happy guest{sittingDishes.length !== 1 ? 's' : ''}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-3.5 flex items-center justify-between text-xs mt-2">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-indigo-400" />
-                    <div>
-                      <p className="font-semibold text-slate-200">
-                        Theorem Verified: {winningRotations.length > 0 ? "SUCCESS" : "ERROR"}
-                      </p>
-                      <p className="text-slate-400">
-                        Rotation{winningRotations.length !== 1 ? 's' : ''} <span className="text-indigo-400 font-bold">{winningRotations.map(w => `+${w.rotation}`).join(', ')}</span> yields ≥ 2 matches!
-                      </p>
-                    </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 text-xs">
+                    <Settings2 /> <span>Guests (n):</span>
+                    <input type="range" min="3" max="10" value={n} onChange={(e) => handleNChange(parseInt(e.target.value))} className="w-24 accent-indigo-500 cursor-pointer"/>
+                    <span className="text-sm font-bold text-indigo-400 w-5 text-center">{n}</span>
                   </div>
-                  <button 
-                    onClick={() => {
-                      if (winningRotations.length > 0) {
-                        setRotation(winningRotations[0].rotation);
-                        setActiveTab('interactive');
-                      }
-                    }}
-                    className="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white px-3 py-1.5 rounded-lg border border-indigo-500/30 transition-all text-xs font-semibold"
-                  >
-                    Apply Winning Rotation
+                  <button onClick={handleShuffle} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-all active:scale-95">
+                    <Shuffle /> Shuffle Derangement
                   </button>
                 </div>
-              </div>
-            )}
+              </header>
 
-            {/* Explanatory Proof Tab */}
-            {activeTab === 'proof' && (
-              <div className="w-full h-full flex flex-col justify-between overflow-y-auto pr-1 text-slate-300 text-sm leading-relaxed space-y-4 py-2">
-                <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800 space-y-3">
-                  <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-                    <BookOpen className="w-5 h-5 text-indigo-400" />
-                    Pigeonhole Principle Demonstration
-                  </h3>
-                  <p>
-                    Let n be the number of guests. Label the guests G₀, G₁, ..., Gₙ₋₁ and let guest Gᵢ order dish Dᵢ.
-                  </p>
-                  <p>
-                    When the food is served, we are in a <strong>derangement</strong>. This means no guest starts with their correct dish:
-                    <span className="block my-2 bg-slate-950/80 px-3 py-2 rounded-lg font-mono text-center border border-slate-900 text-indigo-300">
-                      {"∀ i, Dish(Gᵢ) ≠ Dᵢ at rotation 0"}
-                    </span>
-                  </p>
-                  <p>
-                    For each dish, there is a unique rotation k ∈ {"{1, 2, ..., n-1}"} that brings it to its correct owner. Note that k = 0 is <strong>impossible</strong>, because that corresponds to the starting layout (where every single person has an incorrect dish).
-                  </p>
-                  <p>
-                    Thus, we must assign n dishes (the <strong>pigeons</strong>) into n-1 available rotation categories (the <strong>pigeonholes</strong>: 1, 2, ..., n-1).
-                  </p>
-                  <p className="bg-indigo-950/30 border border-indigo-800/50 p-3 rounded-lg text-indigo-200">
-                    💡 <strong>The Pigeonhole Principle</strong> states that if we place n items into n-1 containers, at least one container must receive at least 2 items.
-                  </p>
-                  <p>
-                    Therefore, there must exist at least one rotation k* that satisfies the requirement of at least 2 different dishes. If we perform exactly k* rotation steps, both of those guests will simultaneously receive their correct dishes!
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right column: Interactive Setup, Controls & Tables (5 cols) */}
-        <div className="lg:col-span-5 flex flex-col gap-6">
-          
-          {/* Dashboard Summary Widget */}
-          <div className="bg-slate-900/40 rounded-2xl border border-slate-800/80 p-5 shadow-xl">
-            <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400 mb-3.5 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              Live Status Dashboard
-            </h2>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-                <span className="text-xxs text-slate-400 block font-bold uppercase tracking-wider">Current Matches</span>
-                <span className={`text-2xl font-black block mt-1 transition-all ${matches.length >= 2 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                  {matches.length}
-                </span>
-                <span className="text-[10px] text-slate-500 block mt-1">
-                  {matches.length >= 2 ? '🎉 Goal Achieved (≥ 2)' : 'Need to rotate table'}
-                </span>
-              </div>
-
-              <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-                <span className="text-xxs text-slate-400 block font-bold uppercase tracking-wider">Initial State</span>
-                <span className={`text-base font-bold block mt-2 transition-all ${isInitialDerangement ? 'text-indigo-400' : 'text-amber-400'}`}>
-                  {isInitialDerangement ? 'Derangement' : 'Not Deranged'}
-                </span>
-                <span className="text-[10px] text-slate-500 block mt-1">
-                  {isInitialDerangement ? 'Everyone starts incorrect' : 'Some start correct'}
-                </span>
-              </div>
-            </div>
-
-            {/* Happy guests highlights */}
-            <div className="mt-4 pt-3.5 border-t border-slate-800/60">
-              <span className="text-xs font-semibold text-slate-300 block mb-2">Guest Seat Status:</span>
-              <div className="flex flex-wrap gap-1.5">
-                {Array.from({ length: n }).map((_, i) => {
-                  const isHappy = matches.includes(i);
-                  const currentDishId = currentDishes[i];
-                  const food = FOOD_DATABASE[currentDishId] || { emoji: '🍽️', letter: '?' };
-                  const owner = FOOD_DATABASE[i] || { label: '?' };
-                  return (
-                    <div 
-                      key={`badge-${i}`}
-                      className={`px-2 py-1 rounded-lg text-xs font-medium flex items-center gap-1 border ${
-                        isHappy 
-                          ? 'bg-emerald-950/40 border-emerald-800 text-emerald-300' 
-                          : 'bg-slate-950/40 border-slate-800/80 text-slate-400'
-                      }`}
-                    >
-                      <span className="font-bold">{owner.label}</span>
-                      <span className="text-[10px]">got</span>
-                      <span>{food.emoji}</span>
+              <main className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6">
+                <div className="lg:col-span-7 flex flex-col bg-slate-900/40 rounded-2xl border border-slate-800 p-5 relative">
+                  <div className="flex items-center justify-between mb-4 z-10">
+                    <div className="flex gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+                      <button onClick={() => setActiveTab('interactive')} className={`px-3 py-1.5 rounded-lg ${activeTab === 'interactive' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>Interactive Table</button>
+                      <button onClick={() => setActiveTab('pigeonhole')} className={`px-3 py-1.5 rounded-lg ${activeTab === 'pigeonhole' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>Pigeonholes Map</button>
+                      <button onClick={() => setActiveTab('proof')} className={`px-3 py-1.5 rounded-lg ${activeTab === 'proof' ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>Formal Proof</button>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+                    <button onClick={() => setIsEditing(!isEditing)} className={`px-2.5 py-1 rounded-lg text-xs font-medium border ${isEditing ? 'bg-amber-500/20 text-amber-300 border-amber-500/50' : 'bg-slate-800 text-slate-300 border-slate-700'}`}>
+                      {isEditing ? "Exit Edit Mode 🛠️" : "Edit Initial Setup"}
+                    </button>
+                  </div>
 
-          {/* Edit & Setup Controller Panel */}
-          <div className="bg-slate-900/40 rounded-2xl border border-slate-800/80 p-5 shadow-xl flex-1 flex flex-col justify-between">
-            <div>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                  <Settings2 className="w-4 h-4 text-indigo-400" />
-                  Table Setup Manager
-                </h2>
-                {isEditing && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/10 border border-amber-500/30 text-amber-300 font-bold animate-pulse">
-                    EDIT MODE ACTIVE
-                  </span>
-                )}
-              </div>
+                  {!isInitialDerangement && (
+                    <div className="mb-4 bg-amber-950/40 border border-amber-800/50 text-amber-200 px-4 py-2 rounded-xl flex items-start gap-2 text-xs">
+                      <AlertTriangle /> <span><strong>Warning:</strong> Not a derangement. Setup needs everyone with an incorrect plate for the theorem math to hold.</span>
+                    </div>
+                  )}
 
-              {/* Table listing layout of seats */}
-              <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
-                {Array.from({ length: n }).map((_, i) => {
-                  const guest = FOOD_DATABASE[i] || { label: '?', name: 'Unknown', letter: '?' };
-                  const currentDishId = currentDishes[i];
-                  const currentFood = FOOD_DATABASE[currentDishId] || { emoji: '🍽️', letter: '?' };
-                  const initialDishId = dishes[i];
-                  
-                  const isCorrectNow = currentDishId === i;
-
-                  return (
-                    <div 
-                      key={`setup-row-${i}`}
-                      className={`p-2.5 rounded-xl border flex items-center justify-between gap-3 transition-all ${
-                        isCorrectNow 
-                          ? 'bg-emerald-950/20 border-emerald-800/60' 
-                          : 'bg-slate-950/60 border-slate-800/80'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        {/* Guest Indicator */}
-                        <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center font-bold text-slate-200">
-                          {guest.label}
+                  <div className="flex-1 flex flex-col items-center justify-center min-h-[400px] relative">
+                    {activeTab === 'interactive' && (
+                      <>
+                        <div className="absolute bottom-2 flex justify-center items-center gap-4 bg-slate-950/80 p-2 rounded-xl border border-slate-800 w-64">
+                          <button onClick={() => setRotation((prev) => (prev - 1 + n) % n)} className="p-1 text-slate-400 hover:text-white"><RotateCcw /></button>
+                          <span className="text-xs font-bold text-slate-300">Rotation: +{rotation}</span>
+                          <button onClick={() => setRotation((prev) => (prev + 1) % n)} className="p-1 text-slate-400 hover:text-white"><RotateCw /></button>
                         </div>
-                        <div>
-                          <span className="text-xs font-medium text-slate-400 block">Wants</span>
-                          <span className="text-xs font-bold text-slate-200">{guest.name} ({guest.letter})</span>
-                        </div>
-                      </div>
 
-                      <div className="flex items-center gap-3">
-                        <span className="text-slate-500 text-xs">has</span>
-                        
-                        {isEditing ? (
-                          /* Dropdown to manually swap dish on this plate */
-                          <select 
-                            value={initialDishId !== undefined ? initialDishId : 0}
-                            onChange={(e) => handleManualDishChange(i, parseInt(e.target.value))}
-                            className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-200 outline-none focus:border-indigo-500 hover:border-slate-500 transition-colors"
-                          >
-                            {Array.from({ length: n }).map((_, dIndex) => {
-                              const food = FOOD_DATABASE[dIndex] || { emoji: '🍽️', letter: '?', name: 'Food' };
+                        <div className="relative w-full max-w-[360px] aspect-square">
+                          <svg viewBox="0 0 400 400" className="w-full h-full select-none">
+                            <circle cx="200" cy="200" r="130" className="fill-slate-900 stroke-slate-800 stroke-2" />
+                            <g style={{ transform: `rotate(${(rotation * 360) / n}deg)`, transformOrigin: '200px 200px', transition: 'transform 0.4s ease' }}>
+                              <circle cx="200" cy="200" r="100" className="fill-slate-800/40 stroke-slate-700" />
+                              {Array.from({ length: n }).map((_, i) => {
+                                const angle = (i * 2 * Math.PI) / n - Math.PI / 2;
+                                const cx = 200 + 68 * Math.cos(angle);
+                                const cy = 200 + 68 * Math.sin(angle);
+                                const food = FOOD_DATABASE[dishes[i]] || { emoji: '🍽️', letter: '?' };
+                                const isCorrectNow = dishes[i] === (i + rotation) % n;
+                                return (
+                                  <g key={i}>
+                                    <circle cx={cx} cy={cy} r="20" className={isCorrectNow ? 'fill-emerald-500/20 stroke-emerald-400 stroke-2' : 'fill-slate-900 stroke-slate-600/50'} />
+                                    <text x={cx} y={cy + 5} textAnchor="middle" fontSize="16">{food.emoji}</text>
+                                  </g>
+                                );
+                              })}
+                            </g>
+                            {Array.from({ length: n }).map((_, i) => {
+                              const angle = (i * 2 * Math.PI) / n - Math.PI / 2;
+                              const cx = 200 + 155 * Math.cos(angle);
+                              const cy = 200 + 155 * Math.sin(angle);
+                              const person = FOOD_DATABASE[i] || { label: '?' };
+                              const isHappy = matches.includes(i);
                               return (
-                                <option key={`opt-${dIndex}`} value={food.id}>
-                                  {food.emoji} {food.letter} ({food.name})
-                                </option>
+                                <g transform={`translate(${cx - 22}, ${cy - 22})`} key={i}>
+                                  <rect width="44" height="44" rx="8" className={isHappy ? 'fill-emerald-950 stroke-emerald-500 stroke-2' : 'fill-slate-900 stroke-slate-800'} />
+                                  <text x="22" y="20" textAnchor="middle" className="text-xs font-bold fill-white">{person.label}</text>
+                                  <text x="22" y="34" textAnchor="middle" fontSize="8" className="fill-slate-400">{isHappy ? "😊 Match!" : `wants ${person.letter}`}</text>
+                                </g>
                               );
                             })}
-                          </select>
-                        ) : (
-                          /* Simple Display */
-                          <div className={`px-2.5 py-1 rounded-lg bg-slate-900/80 border flex items-center gap-1.5 ${isCorrectNow ? 'border-emerald-500/50' : 'border-slate-800'}`}>
-                            <span>{currentFood.emoji}</span>
-                            <span className={`text-xs font-bold ${isCorrectNow ? 'text-emerald-400' : 'text-slate-300'}`}>
-                              {currentFood.letter}
-                            </span>
-                          </div>
-                        )}
+                          </svg>
+                        </div>
+                      </>
+                    )}
+
+                    {activeTab === 'pigeonhole' && (
+                      <div className="w-full space-y-4">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {Array.from({ length: n - 1 }).map((_, idx) => {
+                            const holeRotation = idx + 1;
+                            const sittingDishes = Object.keys(requiredRotations)
+                              .filter(dId => requiredRotations[dId] === holeRotation)
+                              .map(dId => FOOD_DATABASE[parseInt(dId)])
+                              .filter(Boolean);
+                            return (
+                              <div key={idx} className={`p-3 rounded-xl border text-center ${sittingDishes.length >= 2 ? 'bg-indigo-950/40 border-indigo-500' : 'bg-slate-900 border-slate-800'}`}>
+                                <div className="text-[10px] uppercase text-slate-400 font-bold">Rotation +{holeRotation}</div>
+                                <div className="flex justify-center gap-1 my-2">
+                                  {sittingDishes.map(f => <span key={f.id} title={f.name}>{f.emoji}</span>)}
+                                </div>
+                                <div className="text-xs text-slate-400">{sittingDishes.length} items</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {activeTab === 'proof' && (
+                      <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-sm space-y-2">
+                        <h3 className="font-bold text-indigo-400 flex items-center gap-1"><BookOpen /> Pigeonhole Principle Proof</h3>
+                        <p>Let n be the number of guests. Because it starts as a derangement, rotation 0 provides 0 correct dishes.</p>
+                        <p>This means all n dishes (the pigeons) require some rotation step k belonging to {"{1, 2, ..., n-1}"} to find their owners.</p>
+                        <p className="bg-indigo-900/20 p-2 rounded text-indigo-300">Since there are n dishes but only n-1 unique rotation holes available, at least one rotation hole must hold 2 or more dishes.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="lg:col-span-5 flex flex-col gap-4">
+                  <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1"><CheckCircle2 /> Live Dashboard</h2>
+                    <div className="grid grid-cols-2 gap-2 text-center">
+                      <div className="bg-slate-950 p-2 rounded-xl border border-slate-800">
+                        <span className="text-[10px] text-slate-400 block">Matches right now</span>
+                        <span className={`text-xl font-bold ${matches.length >= 2 ? 'text-emerald-400' : 'text-rose-400'}`}>{matches.length}</span>
+                      </div>
+                      <div className="bg-slate-950 p-2 rounded-xl border border-slate-800">
+                        <span className="text-[10px] text-slate-400 block">Initial State</span>
+                        <span className="text-sm font-bold text-indigo-400 block mt-1">{isInitialDerangement ? 'Deranged' : 'Standard'}</span>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+
+                  <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-4 flex-1">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Table Setup Manager</h2>
+                    <div className="space-y-1.5 max-h-[260px] overflow-y-auto">
+                      {Array.from({ length: n }).map((_, i) => {
+                        const guest = FOOD_DATABASE[i] || { label: '?' };
+                        const currentDishId = currentDishes[i];
+                        const currentFood = FOOD_DATABASE[currentDishId] || { emoji: '🍽️', letter: '?' };
+                        return (
+                          <div key={i} className="p-2 bg-slate-950 rounded-lg border border-slate-800 flex justify-between items-center text-xs">
+                            <span>Guest <strong>{guest.label}</strong> (wants {guest.letter})</span>
+                            {isEditing ? (
+                              <select value={dishes[i]} onChange={(e) => handleManualDishChange(i, parseInt(e.target.value))} className="bg-slate-900 border border-slate-700 text-white rounded px-1">
+                                {Array.from({ length: n }).map((_, dIdx) => <option key={dIdx} value={dIdx}>{FOOD_DATABASE[dIdx].emoji} {FOOD_DATABASE[dIdx].letter}</option>)}
+                              </select>
+                            ) : (
+                              <span className="font-bold text-indigo-300">{currentFood.emoji} {currentFood.letter}</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </main>
             </div>
+          );
+        }
 
-            {/* Quick Math Summary stats at the bottom */}
-            <div className="mt-4 pt-4 border-t border-slate-800/60 text-xs text-slate-400">
-              <div className="flex justify-between items-center py-1">
-                <span>Total Dishes / Rotation Holes:</span>
-                <span className="font-bold text-slate-200">{n} Pigeons / {n-1} Non-zero Holes</span>
-              </div>
-              <div className="flex justify-between items-center py-1">
-                <span>Current Matches (Happy Guests):</span>
-                <span className={`font-black ${matches.length >= 2 ? 'text-emerald-400' : 'text-slate-200'}`}>{matches.length}</span>
-              </div>
-              <div className="flex justify-between items-center py-1">
-                <span>Theorem holds for setup?</span>
-                <span className="font-bold text-indigo-400">{winningRotations.length > 0 ? "Yes, guaranteed! ✓" : "No, starts with a match."}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </main>
-
-      {/* Proof Explainer Banner Footnote */}
-      <footer className="bg-slate-900/30 border-t border-slate-800/80 p-4 text-center text-xs text-slate-400 flex flex-col sm:flex-row justify-between items-center gap-3">
-        <span>Designed for curious minds studying discrete mathematics. Feel free to adjust <code className="bg-slate-950 px-1.5 py-0.5 rounded text-indigo-400">n</code> and test manual dish orders!</span>
-        <div className="flex gap-4">
-          <a 
-            href="#interactive" 
-            onClick={(e) => { e.preventDefault(); setActiveTab('proof'); }} 
-            className="text-indigo-400 hover:text-indigo-300 font-semibold"
-          >
-            How does the proof work?
-          </a>
-        </div>
-      </footer>
-    </div>
-  );
-}
+        const root = ReactRoot = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
