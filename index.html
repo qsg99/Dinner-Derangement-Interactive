@@ -180,9 +180,9 @@
                     {activeTab === 'interactive' && (
                       <>
                         <div className="absolute bottom-2 flex justify-center items-center gap-4 bg-slate-950/80 p-2 rounded-xl border border-slate-800 w-64">
-                          <button onClick={() => setRotation((prev) => (prev - 1 + n) % n)} className="p-1 text-slate-400 hover:text-white"><RotateCcw /></button>
+                          <button onClick={() => setRotation((prev) => (prev - 1 + n) % n)} className="p-1 text-slate-400 hover:text-white">Counterclockwise <RotateCcw /></button>
                           <span className="text-xs font-bold text-slate-300">Rotation: +{rotation}</span>
-                          <button onClick={() => setRotation((prev) => (prev + 1) % n)} className="p-1 text-slate-400 hover:text-white"><RotateCw /></button>
+                          <button onClick={() => setRotation((prev) => (prev + 1) % n)} className="p-1 text-slate-400 hover:text-white">Clockwise <RotateCw /></button>
                         </div>
 
                         <div className="relative w-full max-w-[360px] aspect-square">
